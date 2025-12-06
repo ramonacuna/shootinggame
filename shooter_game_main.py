@@ -200,7 +200,8 @@ class ShootingGame(ShowBase):
 
         menu_text = "Select Difficulty\n\n"
         for key, config in DIFFICULTY_LEVELS.items():
-            menu_text += f"{config['name']} - Life: {config['player_life']} - Time: {config['game_duration']:.0f}s\n"
+            icon = config.get("icon", "")
+            menu_text += f"[{key[0]}] {config['name']} {icon} - Life: {config['player_life']} - Time: {config['game_duration']:.0f}s\n"
 
         menu_text += "\nPress 1, 2, or 3 to Start"
         self.menuText.setText(menu_text)
@@ -211,7 +212,8 @@ class ShootingGame(ShowBase):
 
     def handleEnter(self):
         if self.gameOver and not self.gameRunning:
-            self.restartGame()
+            self.statusText.setText("")
+            self.showDifficultySelection()
 
     def setDifficulty(self, difficulty_key):
         if self.gameRunning:
@@ -238,7 +240,6 @@ class ShootingGame(ShowBase):
         return []
 
     def saveHighScores(self):
-        """Guarda la lista de mejores tiempos en el archivo JSON."""
         self.highScores.sort(reverse=True)
         self.highScores = self.highScores[:MAX_HIGH_SCORES]
         try:
@@ -248,7 +249,6 @@ class ShootingGame(ShowBase):
             pass
 
     def formatHighScores(self):
-        """Formatea la lista de mejores tiempos para mostrar en pantalla."""
         sorted_scores = sorted(self.highScores, reverse=True)[:MAX_HIGH_SCORES]
         text = "🏆 Best Survival Times (s) 🏆\n"
         if not sorted_scores:
@@ -259,7 +259,6 @@ class ShootingGame(ShowBase):
         return text.strip()
 
     def createRedFilter(self):
-        """Creates the red filter overlay."""
         cm = CardMaker("red_filter")
         cm.setFrameFullscreenQuad()
         filter_node = render2d.attachNewNode(cm.generate())
@@ -268,12 +267,10 @@ class ShootingGame(ShowBase):
         return filter_node
 
     def startScreenShake(self):
-        """Initiates the screen shake effect."""
         self.shakeStartTime = globalClock.getFrameTime()
         self.taskMgr.add(self.shakeTask, "shakeTask")
 
     def shakeTask(self, task):
-        """Applies continuous screen shake effect."""
         currentTime = globalClock.getFrameTime()
         elapsed = currentTime - self.shakeStartTime
 
@@ -291,17 +288,14 @@ class ShootingGame(ShowBase):
             return Task.done
 
     def showRedFilter(self):
-        """Shows the red filter."""
         self.redFilter.setAlphaScale(RED_FILTER_INTENSITY)
         self.taskMgr.doMethodLater(RED_FILTER_DURATION, self.hideRedFilter, "hideRedFilter")
 
     def hideRedFilter(self, task):
-        """Hides the red filter."""
         self.redFilter.setAlphaScale(0.0)
         return Task.done
 
     def createBackground(self):
-        """Creates and returns a background card using the background image."""
         bg_tex = loader.loadTexture(BACKGROUND_IMAGE)
         cm = CardMaker("background")
         cm.setFrame(-1, 1, -1, 1)
@@ -315,7 +309,6 @@ class ShootingGame(ShowBase):
         return bg
 
     def createSprite(self, texture, x, y, scale=1.0, transparency=1.0):
-        """Creates a 2D sprite (billboarded quad) with the given texture and transparency."""
         cm = CardMaker("sprite")
         cm.setFrame(-0.5, 0.5, -0.5, 0.5)
         sprite = render.attachNewNode(cm.generate())
@@ -328,9 +321,6 @@ class ShootingGame(ShowBase):
         return sprite
 
     def createExplosionSprite(self, x, y, enemy_scale=None, speed=EXPLOSION_SPEED):
-        """
-        Creates an explosion sprite with scale based on enemy size.
-        """
         explosion_tex = loader.loadTexture(EXPLOSION_IMAGE)
 
         if enemy_scale:
@@ -343,9 +333,6 @@ class ShootingGame(ShowBase):
         return explosion_sprite
 
     def createBonusSprite(self, x, y, value=BONUS_STARTING_VALUE, scale=BONUS_SCALE, speed=BONUS_SPEED):
-        """
-        Creates a bonus sprite with the given parameters.
-        """
         texture = self.bonusTextures["positive"] if value >= 0 else self.bonusTextures["negative"]
 
         bonus_sprite = self.createSprite(texture, x, y, scale, BONUS_TRANSPARENCY)
@@ -375,20 +362,17 @@ class ShootingGame(ShowBase):
         return bonus_sprite
 
     def removeExplosionTask(self, explosion_sprite):
-        """Task to remove the explosion sprite after a delay."""
         explosion_sprite.removeNode()
         if explosion_sprite in self.explosions:
             self.explosions.remove(explosion_sprite)
         return Task.done
 
     def setKey(self, key, value):
-        """Set key state and update player texture."""
         self.keyMap[key] = value
         if self.gameRunning:
             self.updatePlayerTexture()
 
     def updatePlayerTexture(self):
-        """Update player texture based on key input."""
         if self.keyMap["left"]:
             self.player.setTexture(self.playerTextures["left"])
         elif self.keyMap["right"]:
@@ -397,7 +381,6 @@ class ShootingGame(ShowBase):
             self.player.setTexture(self.playerTextures["idle"])
 
     def updateTask(self, task):
-        """Main game update function."""
         if not self.gameRunning:
             return Task.cont
 
@@ -424,7 +407,6 @@ class ShootingGame(ShowBase):
         return Task.cont
 
     def updatePlayer(self, dt):
-        """Move the player left/right."""
         dx = 0
         if self.keyMap["left"]:
             dx -= PLAYER_SPEED * dt
@@ -434,7 +416,6 @@ class ShootingGame(ShowBase):
         self.player.setX(max(LEFT_BOUND, min(RIGHT_BOUND, newX)))
 
     def updateCamera(self):
-        """Moves the camera behind and slightly above the player."""
         playerX = self.player.getX()
         self.camera.setPos(playerX, PLAYER_START_Y - CAMERA_DISTANCE,
                            CAMERA_HEIGHT)
@@ -442,7 +423,6 @@ class ShootingGame(ShowBase):
         self.originalCameraPos = self.camera.getPos()
 
     def updateShots(self, dt):
-        """Moves shots forward and removes out-of-bounds shots."""
         for shot in self.shots[:]:
             shot.setY(shot.getY() + SHOT_SPEED * dt)
             if shot.getY() > ENEMY_SPAWN_Y + 5:
@@ -458,7 +438,6 @@ class ShootingGame(ShowBase):
             self.endGame(win=False)
 
     def updateEnemies(self, dt):
-        """Moves enemies downward and checks for collision with the player."""
         for enemy in self.enemies[:]:
             speed = enemy.getPythonTag("speed")
             enemy.setY(enemy.getY() - speed * dt)
@@ -483,7 +462,6 @@ class ShootingGame(ShowBase):
                 continue
 
     def updateBonuses(self, dt):
-        """Moves bonuses downward and checks for collision with the player."""
         for bonus in self.bonuses[:]:
             speed = bonus.getPythonTag("speed")
             bonus.setY(bonus.getY() - speed * dt)
@@ -506,7 +484,6 @@ class ShootingGame(ShowBase):
                 self.bonuses.remove(bonus)
 
     def applyBonusEffect(self, value):
-        """Apply bonus effect to player's shot parameters based on bonus value."""
         if value == -10:
             modifier = 0.5
         elif value == 0:
@@ -523,7 +500,6 @@ class ShootingGame(ShowBase):
         self.taskMgr.doMethodLater(self.currentShotInterval, self.autoShootTask, "autoShootTask")
 
     def updateExplosions(self, dt):
-        """Moves explosions downward and removes out-of-bounds or timed-out explosions."""
         for explosion in self.explosions[:]:
             speed = explosion.getPythonTag("speed")
             explosion.setY(explosion.getY() - speed * dt)
@@ -532,9 +508,6 @@ class ShootingGame(ShowBase):
                 self.explosions.remove(explosion)
 
     def checkCollisions(self):
-        """
-        Checks for collisions between shots and enemies/bonuses.
-        """
         for shot in self.shots[:]:
             shotPos = shot.getPos()
             shot_to_remove = False
@@ -588,7 +561,6 @@ class ShootingGame(ShowBase):
                     break
 
     def autoShootTask(self, task):
-        """Automatically fires a shot from the player's current position."""
         if self.gameRunning and not self.gameOver:
             shot = self.createSprite(loader.loadTexture(SHOT_IMAGE),
                                      self.player.getX(), self.player.getY(), self.currentShotScale)
@@ -600,7 +572,6 @@ class ShootingGame(ShowBase):
         return max(0.1, base_interval - (0.1 * (self.stage - 1)))
 
     def spawnEnemyTask(self, task):
-        """Spawns a new enemy based on the probability distribution."""
         if not self.gameRunning or self.gameOver:
             return Task.done
 
@@ -615,9 +586,6 @@ class ShootingGame(ShowBase):
         return Task.again
 
     def spawnBonusTask(self, task):
-        """
-        Spawns a new bonus at one of two fixed positions.
-        """
         if not self.gameRunning or self.gameOver:
             return Task.done
 
@@ -634,7 +602,6 @@ class ShootingGame(ShowBase):
         return Task.again
 
     def endGame(self, win):
-        """Ends the game and displays a win/lose message."""
         self.gameOver = True
         self.gameRunning = False
         self.lastWin = win
@@ -643,6 +610,7 @@ class ShootingGame(ShowBase):
         self.taskMgr.remove("autoShootTask")
         self.taskMgr.remove("spawnEnemyTask")
         self.taskMgr.remove("spawnBonusTask")
+        self.taskMgr.remove("restartGameTask")
 
         if win:
             finalTime = globalClock.getRealTime() - self.gameStartTime
@@ -655,24 +623,17 @@ class ShootingGame(ShowBase):
             self.stage += 1
             self.winCountText.setText(f"Wins: {self.winCount}")
             self.statusText.setText(f"You Win! Stage {self.stage} starting soon...")
-
-            new_interval = self.getEnemySpawnInterval()
             self.taskMgr.doMethodLater(3.0, self.restartGameTask, "restartGameTask", extraArgs=[True])
         else:
-            self.statusText.setText("Game Over! Press Enter to restart.")
+            self.statusText.setText("Game Over! Click Enter to play again.")
             self.stage = 1
-            self.taskMgr.doMethodLater(0.5, self.restartGameTask, "restartGameTask", extraArgs=[False])
 
     def restartGameTask(self, task, next_stage=False):
-        """Task wrapper to restart the game automatically."""
         self.restartGame(next_stage)
         return Task.done
 
     def restartGame(self, next_stage=False):
-        """Resets the game state to allow a new game to start."""
-
         if not self.gameRunning:
-            # Limpiar elementos del juego
             for shot in self.shots:
                 shot.removeNode()
             self.shots = []
